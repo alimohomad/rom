@@ -6,15 +6,20 @@ const disconnectButton = document.querySelector("#disconnectButton");
 const statusText = document.querySelector("#statusText");
 const statusPill = document.querySelector("#statusPill");
 const roomLabel = document.querySelector("#roomLabel");
+const receiverCount = document.querySelector("#receiverCount");
+const frameCount = document.querySelector("#frameCount");
+const serverLabel = document.querySelector("#serverLabel");
 const remoteFrame = document.querySelector("#remoteFrame");
 const emptyPreview = document.querySelector("#emptyPreview");
 
 let ws;
 let lastFrameUrl;
+let framesSeen = 0;
 
 roomInput.value = params.get("room") || "head-office";
 codeInput.value = params.get("code") || "";
 roomLabel.textContent = roomInput.value;
+serverLabel.textContent = window.location.host;
 
 function setStatus(text, state = "warn") {
   statusText.textContent = text;
@@ -38,6 +43,8 @@ function showFrame(blob) {
     lastFrameUrl = nextUrl;
   };
   remoteFrame.src = nextUrl;
+  framesSeen += 1;
+  frameCount.textContent = String(framesSeen);
   emptyPreview.classList.add("hidden");
   setStatus("Watching", "ok");
 }
@@ -46,6 +53,10 @@ function connect() {
   disconnect();
 
   roomLabel.textContent = roomInput.value.trim() || "head-office";
+  serverLabel.textContent = window.location.host;
+  framesSeen = 0;
+  frameCount.textContent = "0";
+  receiverCount.textContent = "0";
   ws = new WebSocket(frameUrl());
   ws.binaryType = "blob";
 
@@ -64,10 +75,15 @@ function connect() {
     const message = JSON.parse(event.data);
 
     if (message.type === "room-status") {
+      receiverCount.textContent = String(message.agents || 0);
+      if ((message.frames || 0) > framesSeen) {
+        frameCount.textContent = String(message.frames);
+      }
+
       if (message.agents > 0) {
         setStatus("Receiver online", "ok");
       } else {
-        setStatus("Waiting");
+        setStatus("Waiting: no receiver");
       }
     }
   };
@@ -96,6 +112,8 @@ function disconnect() {
 
   remoteFrame.removeAttribute("src");
   emptyPreview.classList.remove("hidden");
+  receiverCount.textContent = "0";
+  frameCount.textContent = "0";
   connectButton.disabled = false;
   disconnectButton.disabled = true;
 }

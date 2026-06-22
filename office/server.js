@@ -74,6 +74,7 @@ function getFrameRoom(roomName) {
     frameRooms.set(roomName, {
       agents: new Map(),
       viewers: new Map(),
+      frames: 0,
     });
   }
 
@@ -88,6 +89,7 @@ function sendFrameRoomStatus(roomName) {
     type: "room-status",
     agents: room.agents.size,
     viewers: room.viewers.size,
+    frames: room.frames,
   });
 
   for (const client of [...room.agents.values(), ...room.viewers.values()]) {
@@ -266,6 +268,7 @@ function attachSignaling(server) {
     const room = getFrameRoom(ws.roomName);
     const group = ws.role === "agent" ? room.agents : room.viewers;
     group.set(ws.clientId, ws);
+    console.log(`[frames] ${ws.role} joined room=${ws.roomName} id=${ws.clientId}`);
 
     send(ws, {
       type: "joined",
@@ -279,14 +282,27 @@ function attachSignaling(server) {
       const currentRoom = frameRooms.get(ws.roomName);
       if (!currentRoom || ws.role !== "agent") return;
 
+      if (!isBinary) {
+        return;
+      }
+
+      currentRoom.frames += 1;
+
       for (const viewer of currentRoom.viewers.values()) {
         if (viewer.readyState === WebSocket.OPEN) {
-          viewer.send(raw, { binary: isBinary });
+          viewer.send(raw, { binary: true });
         }
+      }
+
+      if (currentRoom.frames === 1 || currentRoom.frames % 60 === 0) {
+        sendFrameRoomStatus(ws.roomName);
       }
     });
 
-    ws.on("close", () => removeFrameClient(ws));
+    ws.on("close", () => {
+      console.log(`[frames] ${ws.role} left room=${ws.roomName} id=${ws.clientId}`);
+      removeFrameClient(ws);
+    });
     ws.on("error", () => removeFrameClient(ws));
   });
 }
