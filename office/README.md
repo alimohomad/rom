@@ -22,6 +22,16 @@ npm start
 
 The server listens on port `8080` by default.
 
+## If You See 401 Unauthorized
+
+The access code is different between the server and client.
+
+These three values must be exactly the same:
+
+- `HRAS_ACCESS_CODE` on the office server
+- `code=...` in the office browser URL
+- `"code"` in the Windows receiver `hras-agent.json`
+
 ## URLs
 
 Office viewer:

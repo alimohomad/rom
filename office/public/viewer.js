@@ -80,7 +80,7 @@ function connect() {
     }
   };
 
-  ws.onerror = () => setStatus("Connection failed");
+  ws.onerror = () => setStatus("Check code/server");
 }
 
 function disconnect() {

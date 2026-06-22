@@ -30,10 +30,25 @@ while (!cancellation.IsCancellationRequested)
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Connection failed: {ex.Message}");
+        Console.WriteLine($"Connection failed: {DescribeConnectionError(ex)}");
         Console.WriteLine("Retrying in 3 seconds...");
         await Task.Delay(TimeSpan.FromSeconds(3), cancellation.Token);
     }
+}
+
+static string DescribeConnectionError(Exception ex)
+{
+    if (ex.Message.Contains("401", StringComparison.OrdinalIgnoreCase))
+    {
+        return "Unauthorized (401). The code in hras-agent.json must match HRAS_ACCESS_CODE on the office server.";
+    }
+
+    if (ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase))
+    {
+        return "Not found (404). Make sure the office server is running the latest server.js with the /frames endpoint.";
+    }
+
+    return ex.Message;
 }
 
 static async Task RunAgentAsync(AgentOptions options, CancellationToken cancellationToken)
