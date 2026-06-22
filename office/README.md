@@ -58,6 +58,17 @@ Multiple Windows employees can run the same `HRAS-Receiver-Agent.exe` at the sam
 
 For real office use, replace the shared `change-me` code with a strong private code. A later production version should add per-employee identity, device approval, and audit logs.
 
+## Employee And Manager Controls
+
+The Windows receiver runs without a command prompt. Management can create desktop controls with `receiver-agent/install-desktop-controls.ps1`.
+
+- `Start HRAS Sharing` starts the receiver and prints active status.
+- `Status HRAS Sharing` shows whether it is running, PID, start time, uptime, and path.
+- `Stop HRAS Sharing` stops the receiver.
+- Task Manager can also stop it by ending `HRAS-Receiver-Agent.exe`.
+
+The tray icon is kept as a transparency indicator because this app captures the employee's screen.
+
 ## Important HTTPS Note
 
 Screen sharing works on `localhost` over HTTP, but for a public IP most browsers require HTTPS before `share.html` can capture the screen.

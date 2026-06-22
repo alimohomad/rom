@@ -4,7 +4,7 @@ This is the Windows `.exe` sender. Run it on the computer whose screen should be
 
 ## Double-Click Mode
 
-Open `HRAS-Receiver-Agent.exe`. The office server, room, access code, and stream settings are embedded in the app. It runs without a command prompt and shows a small tray icon with an `Open log` and `Stop sharing` menu.
+Open `HRAS-Receiver-Agent.exe`. The office server, room, access code, and stream settings are embedded in the app. It runs without a command prompt and shows the custom HRAS tray icon without a right-click menu.
 
 ```text
 server: ws://198.105.113.144:8080
@@ -62,7 +62,29 @@ This uses the user's Windows Startup folder because a real Windows Service canno
 - `--max-width`: resize width, default `1280`
 - `--monitor`: monitor number, default `0`
 
-The app shows a visible tray icon while sharing and can be stopped from that tray menu.
+The app shows a visible custom tray icon while sharing. Use the desktop stop control or Task Manager to stop it.
+
+## Desktop Start/Stop Controls
+
+Create desktop shortcuts for employees:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\Acer\Documents\joo\office\receiver-agent\install-desktop-controls.ps1
+```
+
+This creates:
+
+- `Start HRAS Sharing`
+- `Status HRAS Sharing`
+- `Stop HRAS Sharing`
+
+The start and status scripts show whether the receiver is active, including PID, start time, uptime, and executable path. The receiver can also be stopped from Task Manager by ending `HRAS-Receiver-Agent.exe`.
+
+Run status manually:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\Acer\Documents\joo\office\receiver-agent\status-receiver.ps1
+```
 
 ## Multiple Employees
 

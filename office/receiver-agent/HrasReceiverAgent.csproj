@@ -8,4 +8,7 @@
     <AssemblyName>HRAS-Receiver-Agent</AssemblyName>
     <RootNamespace>HrasReceiverAgent</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\logo\tray.png" LogicalName="tray.png" />
+  </ItemGroup>
 </Project>

@@ -1,8 +1,9 @@
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Net.WebSockets;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Forms;
@@ -13,6 +14,12 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        using var singleInstance = new Mutex(true, @"Local\HRASReceiverAgent", out var createdNew);
+        if (!createdNew)
+        {
+            return;
+        }
+
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
@@ -151,6 +158,7 @@ sealed class ReceiverTrayContext : ApplicationContext
 {
     private readonly CancellationTokenSource cancellation = new();
     private readonly NotifyIcon notifyIcon;
+    private readonly Icon trayIcon;
     private readonly SynchronizationContext? uiContext;
     private readonly string logPath;
 
@@ -163,18 +171,14 @@ sealed class ReceiverTrayContext : ApplicationContext
             "receiver-agent.log");
         Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
 
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Open log", null, (_, _) => OpenLog());
-        menu.Items.Add("Stop sharing", null, (_, _) => ExitApp());
+        trayIcon = TrayIconFactory.Load();
 
         notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = trayIcon,
             Text = "HRAS Receiver starting",
             Visible = true,
-            ContextMenuStrip = menu,
         };
-        notifyIcon.DoubleClick += (_, _) => OpenLog();
 
         _ = Task.Run(async () =>
         {
@@ -184,7 +188,7 @@ sealed class ReceiverTrayContext : ApplicationContext
             }
             catch (OperationCanceledException)
             {
-                // Normal shutdown from tray menu.
+                // Normal shutdown from an external stop action.
             }
         });
     }
@@ -196,6 +200,7 @@ sealed class ReceiverTrayContext : ApplicationContext
             cancellation.Cancel();
             notifyIcon.Visible = false;
             notifyIcon.Dispose();
+            trayIcon.Dispose();
             cancellation.Dispose();
         }
 
@@ -216,27 +221,48 @@ sealed class ReceiverTrayContext : ApplicationContext
         File.AppendAllText(logPath, $"{DateTimeOffset.Now:u} {message}{Environment.NewLine}");
     }
 
-    private void OpenLog()
+}
+
+static class TrayIconFactory
+{
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyIcon(IntPtr handle);
+
+    public static Icon Load()
     {
         try
         {
-            Process.Start(new ProcessStartInfo
+            using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("tray.png");
+            if (stream is null)
             {
-                FileName = logPath,
-                UseShellExecute = true,
-            });
+                return (Icon)SystemIcons.Application.Clone();
+            }
+
+            using var source = Image.FromStream(stream);
+            using var iconBitmap = new Bitmap(32, 32, PixelFormat.Format32bppArgb);
+            using (var graphics = Graphics.FromImage(iconBitmap))
+            {
+                graphics.Clear(Color.Transparent);
+                graphics.CompositingQuality = CompositingQuality.HighQuality;
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.SmoothingMode = SmoothingMode.HighQuality;
+                graphics.DrawImage(source, 0, 0, 32, 32);
+            }
+
+            var iconHandle = iconBitmap.GetHicon();
+            try
+            {
+                return (Icon)Icon.FromHandle(iconHandle).Clone();
+            }
+            finally
+            {
+                DestroyIcon(iconHandle);
+            }
         }
         catch
         {
-            // Nothing useful to show if the log cannot be opened.
+            return (Icon)SystemIcons.Application.Clone();
         }
-    }
-
-    private void ExitApp()
-    {
-        cancellation.Cancel();
-        notifyIcon.Visible = false;
-        Application.ExitThread();
     }
 }
 
