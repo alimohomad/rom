@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HRAS Share Screen</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Remote computer</p>
+          <h1>Share Screen</h1>
+        </div>
+        <span id="statusPill" class="pill pill-warn">Not sharing</span>
+      </section>
+
+      <section id="secureWarning" class="notice hidden">
+        Browser screen sharing normally requires HTTPS when this page is opened from a public IP.
+      </section>
+
+      <section class="workspace share-layout">
+        <div class="stage">
+          <video id="previewVideo" muted playsinline></video>
+          <div id="emptyPreview" class="empty-state">
+            <strong>Screen preview will appear here</strong>
+            <span>The browser will ask which screen, window, or tab to share.</span>
+          </div>
+        </div>
+
+        <aside class="panel controls">
+          <label>
+            Room
+            <input id="roomInput" autocomplete="off">
+          </label>
+          <label>
+            Access code
+            <input id="codeInput" type="password" autocomplete="off">
+          </label>
+          <button id="startButton" class="button button-dark" type="button">Share Screen</button>
+          <button id="stopButton" class="button button-quiet" type="button" disabled>Stop</button>
+          <dl class="stats">
+            <div>
+              <dt>Status</dt>
+              <dd id="statusText">Waiting to start</dd>
+            </div>
+            <div>
+              <dt>Viewers</dt>
+              <dd id="viewerCount">0</dd>
+            </div>
+          </dl>
+        </aside>
+      </section>
+    </main>
+
+    <script type="module" src="/share.js"></script>
+  </body>
+</html>

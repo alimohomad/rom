@@ -1,0 +1,51 @@
+# HRAS Receiver Agent
+
+This is the Windows `.exe` sender. Run it on the computer whose screen should be visible to the office.
+
+## Double-Click Mode
+
+Edit `hras-agent.json` beside the `.exe`, then open `HRAS-Receiver-Agent.exe`.
+
+```json
+{
+  "server": "ws://OFFICE_PUBLIC_IP:8080",
+  "room": "head-office",
+  "code": "change-me",
+  "fps": 5,
+  "quality": 55,
+  "maxWidth": 1280,
+  "monitor": 0
+}
+```
+
+## Run From Source
+
+```powershell
+dotnet run --project C:\Users\Acer\Documents\joo\office\receiver-agent -- --server ws://OFFICE_PUBLIC_IP:8080 --room head-office --code change-me
+```
+
+## Build EXE
+
+```powershell
+dotnet publish C:\Users\Acer\Documents\joo\office\receiver-agent -c Release -r win-x64 -p:PublishSingleFile=true --self-contained false
+```
+
+The published file is:
+
+```text
+C:\Users\Acer\Documents\joo\office\receiver-agent\bin\Release\net10.0-windows\win-x64\publish\HRAS-Receiver-Agent.exe
+```
+
+The publish folder also contains `hras-agent.json`.
+
+## Options
+
+- `--server`: office server URL, such as `ws://OFFICE_PUBLIC_IP:8080`
+- `--room`: room name, default `head-office`
+- `--code`: access code, must match `HRAS_ACCESS_CODE` on the office server
+- `--fps`: frame rate from `1` to `15`, default `5`
+- `--quality`: JPEG quality from `20` to `90`, default `55`
+- `--max-width`: resize width, default `1280`
+- `--monitor`: monitor number, default `0`
+
+The app shows a visible window while sharing and stops when closed.

@@ -1,0 +1,9 @@
+{
+  "server": "ws://127.0.0.1:8080",
+  "room": "head-office",
+  "code": "change-me",
+  "fps": 5,
+  "quality": 55,
+  "maxWidth": 1280,
+  "monitor": 0
+}

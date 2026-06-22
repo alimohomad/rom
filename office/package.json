@@ -1,0 +1,13 @@
+{
+  "name": "hras-office-browser-share",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based HRAS screen sharing server for office viewer and remote sharer.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

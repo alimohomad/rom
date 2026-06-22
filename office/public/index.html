@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HRAS Office Share</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">HeadOffice Remote Access System</p>
+          <h1>Office Browser Share</h1>
+        </div>
+        <span class="pill">Signaling ready</span>
+      </section>
+
+      <section class="workspace two-column">
+        <article class="panel">
+          <h2>Office Viewer</h2>
+          <p>Open this on the office computer to watch the shared screen.</p>
+          <a class="button" href="/office.html?room=head-office&code=change-me">Open office viewer</a>
+        </article>
+
+        <article class="panel accent-panel">
+          <h2>Receiver Agent</h2>
+          <p>Run the Windows receiver app on the computer whose screen should be shared.</p>
+          <code>HRAS-Receiver-Agent.exe --server ws://OFFICE_PUBLIC_IP:8080 --room head-office --code change-me</code>
+        </article>
+      </section>
+
+      <section class="notice">
+        Change the URL code and set <code>HRAS_ACCESS_CODE</code> before using this over the Internet.
+      </section>
+    </main>
+  </body>
+</html>
