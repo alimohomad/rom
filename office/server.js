@@ -81,21 +81,49 @@ function getFrameRoom(roomName) {
   return frameRooms.get(roomName);
 }
 
-function sendFrameRoomStatus(roomName) {
-  const room = frameRooms.get(roomName);
-  if (!room) return;
+function listAgents(room) {
+  return Array.from(room.agents.values()).map((agent) => ({
+    id: agent.clientId,
+    name: agent.agentInfo?.machine || `Receiver ${agent.clientId.slice(0, 8)}`,
+    machine: agent.agentInfo?.machine || null,
+    fps: agent.agentInfo?.fps || null,
+    quality: agent.agentInfo?.quality || null,
+    frames: agent.agentInfo?.frames || 0,
+    connectedAt: agent.agentInfo?.connectedAt || null,
+  }));
+}
 
-  const message = JSON.stringify({
+function ensureViewerSelection(room, viewer) {
+  if (viewer.selectedAgentId && room.agents.has(viewer.selectedAgentId)) {
+    return viewer.selectedAgentId;
+  }
+
+  const firstAgent = room.agents.keys().next();
+  viewer.selectedAgentId = firstAgent.done ? null : firstAgent.value;
+  return viewer.selectedAgentId;
+}
+
+function buildFrameRoomStatus(room, viewer) {
+  return {
     type: "room-status",
     agents: room.agents.size,
     viewers: room.viewers.size,
     frames: room.frames,
-  });
+    agentList: listAgents(room),
+    selectedAgentId: viewer ? ensureViewerSelection(room, viewer) : null,
+  };
+}
 
-  for (const client of [...room.agents.values(), ...room.viewers.values()]) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
+function sendFrameRoomStatus(roomName) {
+  const room = frameRooms.get(roomName);
+  if (!room) return;
+
+  for (const agent of room.agents.values()) {
+    send(agent, buildFrameRoomStatus(room, null));
+  }
+
+  for (const viewer of room.viewers.values()) {
+    send(viewer, buildFrameRoomStatus(room, viewer));
   }
 }
 
@@ -264,10 +292,23 @@ function attachSignaling(server) {
     ws.clientId = randomUUID();
     ws.roomName = meta.roomName;
     ws.role = meta.role;
+    ws.selectedAgentId = null;
+    ws.agentInfo = null;
 
     const room = getFrameRoom(ws.roomName);
     const group = ws.role === "agent" ? room.agents : room.viewers;
     group.set(ws.clientId, ws);
+
+    if (ws.role === "agent") {
+      ws.agentInfo = {
+        machine: `Receiver ${ws.clientId.slice(0, 8)}`,
+        fps: null,
+        quality: null,
+        frames: 0,
+        connectedAt: new Date().toISOString(),
+      };
+    }
+
     console.log(`[frames] ${ws.role} joined room=${ws.roomName} id=${ws.clientId}`);
 
     send(ws, {
@@ -280,16 +321,44 @@ function attachSignaling(server) {
 
     ws.on("message", (raw, isBinary) => {
       const currentRoom = frameRooms.get(ws.roomName);
-      if (!currentRoom || ws.role !== "agent") return;
+      if (!currentRoom) return;
 
       if (!isBinary) {
+        let message;
+
+        try {
+          message = JSON.parse(raw.toString());
+        } catch {
+          return;
+        }
+
+        if (ws.role === "viewer" && message.type === "select-agent") {
+          ws.selectedAgentId = currentRoom.agents.has(message.agentId) ? message.agentId : null;
+          send(ws, buildFrameRoomStatus(currentRoom, ws));
+          return;
+        }
+
+        if (ws.role === "agent" && message.type === "agent-ready") {
+          ws.agentInfo = {
+            ...ws.agentInfo,
+            machine: message.machine || ws.agentInfo?.machine || `Receiver ${ws.clientId.slice(0, 8)}`,
+            fps: message.fps || null,
+            quality: message.quality || null,
+          };
+          sendFrameRoomStatus(ws.roomName);
+          return;
+        }
+
         return;
       }
 
+      if (ws.role !== "agent") return;
+
       currentRoom.frames += 1;
+      ws.agentInfo.frames += 1;
 
       for (const viewer of currentRoom.viewers.values()) {
-        if (viewer.readyState === WebSocket.OPEN) {
+        if (viewer.readyState === WebSocket.OPEN && ensureViewerSelection(currentRoom, viewer) === ws.clientId) {
           viewer.send(raw, { binary: true });
         }
       }

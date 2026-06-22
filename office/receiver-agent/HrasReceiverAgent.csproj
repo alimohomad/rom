@@ -8,7 +8,4 @@
     <AssemblyName>HRAS-Receiver-Agent</AssemblyName>
     <RootNamespace>HrasReceiverAgent</RootNamespace>
   </PropertyGroup>
-  <ItemGroup>
-    <None Include="hras-agent.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
-  </ItemGroup>
 </Project>

@@ -1,6 +1,7 @@
 const params = new URLSearchParams(window.location.search);
 const roomInput = document.querySelector("#roomInput");
 const codeInput = document.querySelector("#codeInput");
+const employeeSelect = document.querySelector("#employeeSelect");
 const connectButton = document.querySelector("#connectButton");
 const disconnectButton = document.querySelector("#disconnectButton");
 const statusText = document.querySelector("#statusText");
@@ -15,6 +16,7 @@ const emptyPreview = document.querySelector("#emptyPreview");
 let ws;
 let lastFrameUrl;
 let framesSeen = 0;
+let selectedAgentId = null;
 
 roomInput.value = params.get("room") || "head-office";
 codeInput.value = params.get("code") || "";
@@ -49,6 +51,52 @@ function showFrame(blob) {
   setStatus("Watching", "ok");
 }
 
+function clearFrame() {
+  if (lastFrameUrl) {
+    URL.revokeObjectURL(lastFrameUrl);
+    lastFrameUrl = null;
+  }
+
+  remoteFrame.removeAttribute("src");
+  emptyPreview.classList.remove("hidden");
+  framesSeen = 0;
+  frameCount.textContent = "0";
+}
+
+function updateEmployeeSelect(agentList, nextSelectedAgentId) {
+  const previousSelectedAgentId = selectedAgentId;
+  const agents = Array.isArray(agentList) ? agentList : [];
+
+  employeeSelect.innerHTML = "";
+
+  if (agents.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No receiver connected";
+    employeeSelect.append(option);
+    employeeSelect.disabled = true;
+    selectedAgentId = null;
+    clearFrame();
+    return;
+  }
+
+  employeeSelect.disabled = false;
+  selectedAgentId = nextSelectedAgentId || agents[0].id;
+
+  for (const agent of agents) {
+    const option = document.createElement("option");
+    option.value = agent.id;
+    option.textContent = `${agent.name} (${agent.frames || 0} frames)`;
+    employeeSelect.append(option);
+  }
+
+  employeeSelect.value = selectedAgentId;
+
+  if (previousSelectedAgentId && previousSelectedAgentId !== selectedAgentId) {
+    clearFrame();
+  }
+}
+
 function connect() {
   disconnect();
 
@@ -57,6 +105,9 @@ function connect() {
   framesSeen = 0;
   frameCount.textContent = "0";
   receiverCount.textContent = "0";
+  selectedAgentId = null;
+  employeeSelect.disabled = true;
+  employeeSelect.innerHTML = '<option value="">No receiver connected</option>';
   ws = new WebSocket(frameUrl());
   ws.binaryType = "blob";
 
@@ -76,6 +127,8 @@ function connect() {
 
     if (message.type === "room-status") {
       receiverCount.textContent = String(message.agents || 0);
+      updateEmployeeSelect(message.agentList, message.selectedAgentId);
+
       if ((message.frames || 0) > framesSeen) {
         frameCount.textContent = String(message.frames);
       }
@@ -114,12 +167,26 @@ function disconnect() {
   emptyPreview.classList.remove("hidden");
   receiverCount.textContent = "0";
   frameCount.textContent = "0";
+  selectedAgentId = null;
+  employeeSelect.disabled = true;
+  employeeSelect.innerHTML = '<option value="">No receiver connected</option>';
   connectButton.disabled = false;
   disconnectButton.disabled = true;
 }
 
 connectButton.addEventListener("click", connect);
 disconnectButton.addEventListener("click", disconnect);
+employeeSelect.addEventListener("change", () => {
+  selectedAgentId = employeeSelect.value || null;
+  clearFrame();
+
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: "select-agent",
+      agentId: selectedAgentId,
+    }));
+  }
+});
 
 if (codeInput.value) {
   connect();

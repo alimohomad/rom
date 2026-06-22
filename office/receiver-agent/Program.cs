@@ -40,7 +40,7 @@ static string DescribeConnectionError(Exception ex)
 {
     if (ex.Message.Contains("401", StringComparison.OrdinalIgnoreCase))
     {
-        return "Unauthorized (401). The code in hras-agent.json must match HRAS_ACCESS_CODE on the office server.";
+        return "Unauthorized (401). The embedded access code must match HRAS_ACCESS_CODE on the office server.";
     }
 
     if (ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase))
@@ -147,7 +147,6 @@ sealed record AgentOptions(
     public static AgentOptions Parse(string[] args)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var config = AgentConfig.Load();
 
         for (var index = 0; index < args.Length; index++)
         {
@@ -162,13 +161,13 @@ sealed record AgentOptions(
         }
 
         return new AgentOptions(
-            Get(values, "server", config?.Server ?? "ws://127.0.0.1:8080"),
-            Get(values, "room", config?.Room ?? "head-office"),
-            Get(values, "code", config?.Code ?? "change-me"),
-            ClampInt(Get(values, "fps", config?.Fps?.ToString() ?? "5"), 1, 15),
-            ClampInt(Get(values, "quality", config?.Quality?.ToString() ?? "55"), 20, 90),
-            ClampInt(Get(values, "max-width", config?.MaxWidth?.ToString() ?? "1280"), 640, 3840),
-            ClampInt(Get(values, "monitor", config?.Monitor?.ToString() ?? "0"), 0, 8));
+            Get(values, "server", EmbeddedDefaults.Server),
+            Get(values, "room", EmbeddedDefaults.Room),
+            Get(values, "code", EmbeddedDefaults.Code),
+            ClampInt(Get(values, "fps", EmbeddedDefaults.Fps.ToString()), 1, 15),
+            ClampInt(Get(values, "quality", EmbeddedDefaults.Quality.ToString()), 20, 90),
+            ClampInt(Get(values, "max-width", EmbeddedDefaults.MaxWidth.ToString()), 640, 3840),
+            ClampInt(Get(values, "monitor", EmbeddedDefaults.Monitor.ToString()), 0, 8));
     }
 
     public Uri BuildEndpoint()
@@ -205,34 +204,13 @@ sealed record AgentOptions(
     }
 }
 
-sealed class AgentConfig
+static class EmbeddedDefaults
 {
-    public string? Server { get; set; }
-    public string? Room { get; set; }
-    public string? Code { get; set; }
-    public int? Fps { get; set; }
-    public long? Quality { get; set; }
-    public int? MaxWidth { get; set; }
-    public int? Monitor { get; set; }
-
-    public static AgentConfig? Load()
-    {
-        var candidates = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "hras-agent.json"),
-            Path.Combine(Environment.CurrentDirectory, "hras-agent.json"),
-        };
-
-        foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            if (!File.Exists(path)) continue;
-
-            var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<AgentConfig>(
-                json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        }
-
-        return null;
-    }
+    public const string Server = "ws://198.105.113.144:8080";
+    public const string Room = "head-office";
+    public const string Code = "change-me";
+    public const int Fps = 5;
+    public const long Quality = 55;
+    public const int MaxWidth = 1280;
+    public const int Monitor = 0;
 }

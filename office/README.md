@@ -30,7 +30,7 @@ These three values must be exactly the same:
 
 - `HRAS_ACCESS_CODE` on the office server
 - `code=...` in the office browser URL
-- `"code"` in the Windows receiver `hras-agent.json`
+- the embedded code in the Windows receiver `.exe`
 
 ## URLs
 
@@ -43,8 +43,20 @@ http://OFFICE_PUBLIC_IP:8080/office.html?room=head-office&code=change-this-secre
 Remote sharer:
 
 ```text
-HRAS-Receiver-Agent.exe --server ws://OFFICE_PUBLIC_IP:8080 --room head-office --code change-this-secret
+HRAS-Receiver-Agent.exe
 ```
+
+## Multiple Employees
+
+Multiple Windows employees can run the same `HRAS-Receiver-Agent.exe` at the same time.
+
+- They must use the same room and access code.
+- The office browser shows an `Employee screen` dropdown.
+- The dropdown names come from each employee's Windows machine name.
+- The office viewer receives frames only from the selected employee.
+- Switching employees does not require restarting the office server or receiver apps.
+
+For real office use, replace the shared `change-me` code with a strong private code. A later production version should add per-employee identity, device approval, and audit logs.
 
 ## Important HTTPS Note
 
