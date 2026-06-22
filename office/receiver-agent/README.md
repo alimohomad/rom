@@ -4,7 +4,7 @@ This is the Windows `.exe` sender. Run it on the computer whose screen should be
 
 ## Double-Click Mode
 
-Open `HRAS-Receiver-Agent.exe`. The office server, room, access code, and stream settings are embedded in the app.
+Open `HRAS-Receiver-Agent.exe`. The office server, room, access code, and stream settings are embedded in the app. It runs without a command prompt and shows a small tray icon with an `Open log` and `Stop sharing` menu.
 
 ```text
 server: ws://198.105.113.144:8080
@@ -36,6 +36,22 @@ C:\Users\Acer\Documents\joo\office\receiver-agent\bin\Release\net10.0-windows\wi
 
 The publish folder only needs `HRAS-Receiver-Agent.exe`.
 
+## Start Automatically At Login
+
+Run this once on the employee Windows account:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\Acer\Documents\joo\office\receiver-agent\install-startup.ps1
+```
+
+Remove auto-start:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\Acer\Documents\joo\office\receiver-agent\uninstall-startup.ps1
+```
+
+This uses the user's Windows Startup folder because a real Windows Service cannot reliably capture the logged-in desktop session.
+
 ## Options
 
 - `--server`: optional override for the embedded office server URL
@@ -46,7 +62,7 @@ The publish folder only needs `HRAS-Receiver-Agent.exe`.
 - `--max-width`: resize width, default `1280`
 - `--monitor`: monitor number, default `0`
 
-The app shows a visible window while sharing and stops when closed.
+The app shows a visible tray icon while sharing and can be stopped from that tray menu.
 
 ## Multiple Employees
 

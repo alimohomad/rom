@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -7,132 +8,236 @@ using System.Text.Json;
 using System.Windows.Forms;
 using DrawingEncoder = System.Drawing.Imaging.Encoder;
 
-Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
-
-var options = AgentOptions.Parse(args);
-using var cancellation = new CancellationTokenSource();
-
-Console.CancelKeyPress += (_, eventArgs) =>
+internal static class Program
 {
-    eventArgs.Cancel = true;
-    cancellation.Cancel();
-};
+    [STAThread]
+    private static void Main(string[] args)
+    {
+        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
 
-while (!cancellation.IsCancellationRequested)
-{
-    try
-    {
-        await RunAgentAsync(options, cancellation.Token);
-    }
-    catch (OperationCanceledException)
-    {
-        break;
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Connection failed: {DescribeConnectionError(ex)}");
-        Console.WriteLine("Retrying in 3 seconds...");
-        await Task.Delay(TimeSpan.FromSeconds(3), cancellation.Token);
-    }
-}
-
-static string DescribeConnectionError(Exception ex)
-{
-    if (ex.Message.Contains("401", StringComparison.OrdinalIgnoreCase))
-    {
-        return "Unauthorized (401). The embedded access code must match HRAS_ACCESS_CODE on the office server.";
+        var options = AgentOptions.Parse(args);
+        Application.Run(new ReceiverTrayContext(options));
     }
 
-    if (ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase))
+    internal static async Task RunLoopAsync(
+        AgentOptions options,
+        Action<string> setStatus,
+        CancellationToken cancellationToken)
     {
-        return "Not found (404). Make sure the office server is running the latest server.js with the /frames endpoint.";
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await RunAgentAsync(options, setStatus, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                setStatus($"Connection failed: {DescribeConnectionError(ex)}");
+                await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+            }
+        }
     }
 
-    return ex.Message;
-}
-
-static async Task RunAgentAsync(AgentOptions options, CancellationToken cancellationToken)
-{
-    using var socket = new ClientWebSocket();
-    var endpoint = options.BuildEndpoint();
-
-    Console.WriteLine($"Connecting to {endpoint}");
-    await socket.ConnectAsync(endpoint, cancellationToken);
-    Console.WriteLine("Connected. Screen sharing is active. Press Ctrl+C to stop.");
-
-    var metadata = JsonSerializer.Serialize(new
+    private static string DescribeConnectionError(Exception ex)
     {
-        type = "agent-ready",
-        machine = Environment.MachineName,
-        fps = options.Fps,
-        quality = options.Quality,
-    });
-    await socket.SendAsync(
-        Encoding.UTF8.GetBytes(metadata),
-        WebSocketMessageType.Text,
-        true,
-        cancellationToken);
+        if (ex.Message.Contains("401", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Unauthorized (401). The embedded access code must match HRAS_ACCESS_CODE on the office server.";
+        }
 
-    var frameDelay = TimeSpan.FromMilliseconds(1000.0 / options.Fps);
+        if (ex.Message.Contains("404", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Not found (404). Make sure the office server is running the latest server.js with the /frames endpoint.";
+        }
 
-    while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+        return ex.Message;
+    }
+
+    private static async Task RunAgentAsync(
+        AgentOptions options,
+        Action<string> setStatus,
+        CancellationToken cancellationToken)
     {
-        var startedAt = DateTimeOffset.UtcNow;
-        var frame = CaptureJpeg(options);
+        using var socket = new ClientWebSocket();
+        var endpoint = options.BuildEndpoint();
 
+        setStatus($"Connecting to {endpoint.Host}:{endpoint.Port}");
+        await socket.ConnectAsync(endpoint, cancellationToken);
+        setStatus("Connected. Screen sharing is active.");
+
+        var metadata = JsonSerializer.Serialize(new
+        {
+            type = "agent-ready",
+            machine = Environment.MachineName,
+            fps = options.Fps,
+            quality = options.Quality,
+        });
         await socket.SendAsync(
-            frame,
-            WebSocketMessageType.Binary,
+            Encoding.UTF8.GetBytes(metadata),
+            WebSocketMessageType.Text,
             true,
             cancellationToken);
 
-        var elapsed = DateTimeOffset.UtcNow - startedAt;
-        if (elapsed < frameDelay)
+        var frameDelay = TimeSpan.FromMilliseconds(1000.0 / options.Fps);
+
+        while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
-            await Task.Delay(frameDelay - elapsed, cancellationToken);
+            var startedAt = DateTimeOffset.UtcNow;
+            var frame = CaptureJpeg(options);
+
+            await socket.SendAsync(
+                frame,
+                WebSocketMessageType.Binary,
+                true,
+                cancellationToken);
+
+            var elapsed = DateTimeOffset.UtcNow - startedAt;
+            if (elapsed < frameDelay)
+            {
+                await Task.Delay(frameDelay - elapsed, cancellationToken);
+            }
         }
     }
-}
 
-static byte[] CaptureJpeg(AgentOptions options)
-{
-    var screens = Screen.AllScreens;
-    var screenIndex = Math.Clamp(options.Monitor, 0, screens.Length - 1);
-    var bounds = screens[screenIndex].Bounds;
-
-    using var source = new Bitmap(bounds.Width, bounds.Height);
-    using (var graphics = Graphics.FromImage(source))
+    private static byte[] CaptureJpeg(AgentOptions options)
     {
-        graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
+        var screens = Screen.AllScreens;
+        var screenIndex = Math.Clamp(options.Monitor, 0, screens.Length - 1);
+        var bounds = screens[screenIndex].Bounds;
+
+        using var source = new Bitmap(bounds.Width, bounds.Height);
+        using (var graphics = Graphics.FromImage(source))
+        {
+            graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
+        }
+
+        using var output = ResizeIfNeeded(source, options.MaxWidth);
+        using var stream = new MemoryStream();
+        var encoder = ImageCodecInfo.GetImageEncoders().First(codec => codec.FormatID == ImageFormat.Jpeg.Guid);
+        using var encoderParameters = new EncoderParameters(1);
+        encoderParameters.Param[0] = new EncoderParameter(DrawingEncoder.Quality, options.Quality);
+        output.Save(stream, encoder, encoderParameters);
+        return stream.ToArray();
     }
 
-    using var output = ResizeIfNeeded(source, options.MaxWidth);
-    using var stream = new MemoryStream();
-    var encoder = ImageCodecInfo.GetImageEncoders().First(codec => codec.FormatID == ImageFormat.Jpeg.Guid);
-    using var encoderParameters = new EncoderParameters(1);
-    encoderParameters.Param[0] = new EncoderParameter(DrawingEncoder.Quality, options.Quality);
-    output.Save(stream, encoder, encoderParameters);
-    return stream.ToArray();
+    private static Bitmap ResizeIfNeeded(Bitmap source, int maxWidth)
+    {
+        if (maxWidth <= 0 || source.Width <= maxWidth)
+        {
+            return new Bitmap(source);
+        }
+
+        var ratio = maxWidth / (double)source.Width;
+        var width = maxWidth;
+        var height = Math.Max(1, (int)Math.Round(source.Height * ratio));
+        var resized = new Bitmap(width, height);
+
+        using var graphics = Graphics.FromImage(resized);
+        graphics.CompositingQuality = CompositingQuality.HighSpeed;
+        graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        graphics.SmoothingMode = SmoothingMode.HighSpeed;
+        graphics.DrawImage(source, 0, 0, width, height);
+        return resized;
+    }
 }
 
-static Bitmap ResizeIfNeeded(Bitmap source, int maxWidth)
+sealed class ReceiverTrayContext : ApplicationContext
 {
-    if (maxWidth <= 0 || source.Width <= maxWidth)
+    private readonly CancellationTokenSource cancellation = new();
+    private readonly NotifyIcon notifyIcon;
+    private readonly SynchronizationContext? uiContext;
+    private readonly string logPath;
+
+    public ReceiverTrayContext(AgentOptions options)
     {
-        return new Bitmap(source);
+        uiContext = SynchronizationContext.Current;
+        logPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "HRAS",
+            "receiver-agent.log");
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("Open log", null, (_, _) => OpenLog());
+        menu.Items.Add("Stop sharing", null, (_, _) => ExitApp());
+
+        notifyIcon = new NotifyIcon
+        {
+            Icon = SystemIcons.Application,
+            Text = "HRAS Receiver starting",
+            Visible = true,
+            ContextMenuStrip = menu,
+        };
+        notifyIcon.DoubleClick += (_, _) => OpenLog();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Program.RunLoopAsync(options, SetStatus, cancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal shutdown from tray menu.
+            }
+        });
     }
 
-    var ratio = maxWidth / (double)source.Width;
-    var width = maxWidth;
-    var height = Math.Max(1, (int)Math.Round(source.Height * ratio));
-    var resized = new Bitmap(width, height);
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            cancellation.Cancel();
+            notifyIcon.Visible = false;
+            notifyIcon.Dispose();
+            cancellation.Dispose();
+        }
 
-    using var graphics = Graphics.FromImage(resized);
-    graphics.CompositingQuality = CompositingQuality.HighSpeed;
-    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-    graphics.SmoothingMode = SmoothingMode.HighSpeed;
-    graphics.DrawImage(source, 0, 0, width, height);
-    return resized;
+        base.Dispose(disposing);
+    }
+
+    private void SetStatus(string message)
+    {
+        Log(message);
+        uiContext?.Post(_ =>
+        {
+            notifyIcon.Text = message.Length <= 63 ? message : message[..60] + "...";
+        }, null);
+    }
+
+    private void Log(string message)
+    {
+        File.AppendAllText(logPath, $"{DateTimeOffset.Now:u} {message}{Environment.NewLine}");
+    }
+
+    private void OpenLog()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = logPath,
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
+            // Nothing useful to show if the log cannot be opened.
+        }
+    }
+
+    private void ExitApp()
+    {
+        cancellation.Cancel();
+        notifyIcon.Visible = false;
+        Application.ExitThread();
+    }
 }
 
 sealed record AgentOptions(

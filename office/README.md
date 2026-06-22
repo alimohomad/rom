@@ -6,7 +6,7 @@ This folder is a browser-viewer screen sharing prototype with a native Windows s
 
 - The office machine runs `server.js` on a public IP or forwarded port.
 - The office viewer opens `office.html` in a browser.
-- The remote person runs `HRAS-Receiver-Agent.exe`.
+- The remote person runs `HRAS-Receiver-Agent.exe`, which starts without a command prompt.
 - The office viewer sees the remote person's screen.
 
 The browser-based `share.html` page still exists for testing, but the intended sender is now the Windows `.exe` in `receiver-agent/`.
