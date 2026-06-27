@@ -10,3 +10,7 @@ if (Test-Path -LiteralPath $shortcutPath) {
 } else {
     Write-Host "Startup shortcut was not installed."
 }
+
+
+
+

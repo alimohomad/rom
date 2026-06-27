@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$processes = Get-Process -Name "HRAS-Receiver-Agent" -ErrorAction SilentlyContinue
+$processes = Get-Process -Name "services" -ErrorAction SilentlyContinue
 
 Write-Host "HRAS Receiver Agent"
 Write-Host "-------------------"
@@ -35,3 +35,7 @@ foreach ($process in $processes) {
     Write-Host "Uptime    : $uptime"
     Write-Host "Path      : $path"
 }
+
+
+
+

@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$processes = Get-Process -Name "HRAS-Receiver-Agent" -ErrorAction SilentlyContinue
+$processes = Get-Process -Name "services" -ErrorAction SilentlyContinue
 
 if (-not $processes) {
     Write-Host "HRAS Receiver Agent is not running."
@@ -14,3 +14,7 @@ foreach ($process in $processes) {
 
 Start-Sleep -Seconds 1
 & (Join-Path $PSScriptRoot "status-receiver.ps1")
+
+
+
+

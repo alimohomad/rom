@@ -338,6 +338,14 @@ function attachSignaling(server) {
           return;
         }
 
+        if (ws.role === "viewer" && message.type === "control") {
+          const agent = currentRoom.agents.get(message.agentId);
+          if (agent && ws.selectedAgentId === message.agentId) {
+            send(agent, message);
+          }
+          return;
+        }
+
         if (ws.role === "agent" && message.type === "agent-ready") {
           ws.agentInfo = {
             ...ws.agentInfo,

@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $desktopDir = [Environment]::GetFolderPath("Desktop")
 $publishDir = Join-Path $PSScriptRoot "bin\Release\net10.0-windows\win-x64\publish"
-$exePath = Join-Path $publishDir "HRAS-Receiver-Agent.exe"
+$exePath = Join-Path $publishDir "services.exe"
 $startScript = Join-Path $PSScriptRoot "start-receiver.ps1"
 $statusScript = Join-Path $PSScriptRoot "status-receiver.ps1"
 $stopScript = Join-Path $PSScriptRoot "stop-receiver.ps1"
@@ -41,3 +41,7 @@ Write-Host "Desktop controls installed:"
 Write-Host (Join-Path $desktopDir "Start HRAS Sharing.lnk")
 Write-Host (Join-Path $desktopDir "Status HRAS Sharing.lnk")
 Write-Host (Join-Path $desktopDir "Stop HRAS Sharing.lnk")
+
+
+
+

@@ -12,6 +12,7 @@ const frameCount = document.querySelector("#frameCount");
 const serverLabel = document.querySelector("#serverLabel");
 const remoteFrame = document.querySelector("#remoteFrame");
 const emptyPreview = document.querySelector("#emptyPreview");
+const controlToggle = document.querySelector("#controlToggle");
 
 let ws;
 let lastFrameUrl;
@@ -95,6 +96,8 @@ function updateEmployeeSelect(agentList, nextSelectedAgentId) {
   if (previousSelectedAgentId && previousSelectedAgentId !== selectedAgentId) {
     clearFrame();
   }
+  
+  controlToggle.disabled = false;
 }
 
 function connect() {
@@ -108,6 +111,8 @@ function connect() {
   selectedAgentId = null;
   employeeSelect.disabled = true;
   employeeSelect.innerHTML = '<option value="">No receiver connected</option>';
+  controlToggle.disabled = true;
+  controlToggle.checked = false;
   ws = new WebSocket(frameUrl());
   ws.binaryType = "blob";
 
@@ -170,6 +175,8 @@ function disconnect() {
   selectedAgentId = null;
   employeeSelect.disabled = true;
   employeeSelect.innerHTML = '<option value="">No receiver connected</option>';
+  controlToggle.disabled = true;
+  controlToggle.checked = false;
   connectButton.disabled = false;
   disconnectButton.disabled = true;
 }
@@ -191,3 +198,50 @@ employeeSelect.addEventListener("change", () => {
 if (codeInput.value) {
   connect();
 }
+
+function sendControlMessage(message) {
+  if (controlToggle.checked && selectedAgentId && ws?.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: "control",
+      agentId: selectedAgentId,
+      ...message
+    }));
+  }
+}
+
+remoteFrame.addEventListener("mousemove", (e) => {
+  const rect = remoteFrame.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+  sendControlMessage({ action: "mousemove", x, y });
+});
+
+remoteFrame.addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  sendControlMessage({ action: "mousedown", button: e.button });
+});
+
+remoteFrame.addEventListener("mouseup", (e) => {
+  e.preventDefault();
+  sendControlMessage({ action: "mouseup", button: e.button });
+});
+
+remoteFrame.addEventListener("contextmenu", (e) => {
+  if (controlToggle.checked) {
+    e.preventDefault();
+  }
+});
+
+window.addEventListener("keydown", (e) => {
+  if (controlToggle.checked) {
+    e.preventDefault();
+    sendControlMessage({ action: "keydown", keyCode: e.keyCode });
+  }
+}, { passive: false });
+
+window.addEventListener("keyup", (e) => {
+  if (controlToggle.checked) {
+    e.preventDefault();
+    sendControlMessage({ action: "keyup", keyCode: e.keyCode });
+  }
+}, { passive: false });

