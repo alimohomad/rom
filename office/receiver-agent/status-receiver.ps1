@@ -1,6 +1,8 @@
 $ErrorActionPreference = "Stop"
 
-$processes = Get-Process -Name "services" -ErrorAction SilentlyContinue
+$publishDir = Join-Path $PSScriptRoot "bin\Release\net10.0-windows\win-x64\publish"
+$exePath = Join-Path $publishDir "services.exe"
+$processes = Get-Process -Name "services" -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exePath }
 
 Write-Host "HRAS Receiver Agent"
 Write-Host "-------------------"
@@ -35,6 +37,7 @@ foreach ($process in $processes) {
     Write-Host "Uptime    : $uptime"
     Write-Host "Path      : $path"
 }
+
 
 
 

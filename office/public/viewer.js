@@ -128,6 +128,11 @@ function connect() {
       return;
     }
 
+    if (typeof event.data !== "string") {
+      console.log("Received non-blob, non-string message:", event.data);
+      return;
+    }
+
     const message = JSON.parse(event.data);
 
     if (message.type === "room-status") {

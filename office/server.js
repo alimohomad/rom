@@ -364,11 +364,17 @@ function attachSignaling(server) {
 
       currentRoom.frames += 1;
       ws.agentInfo.frames += 1;
-
+      
+      let sentToViewers = 0;
       for (const viewer of currentRoom.viewers.values()) {
         if (viewer.readyState === WebSocket.OPEN && ensureViewerSelection(currentRoom, viewer) === ws.clientId) {
           viewer.send(raw, { binary: true });
+          sentToViewers++;
         }
+      }
+      
+      if (currentRoom.frames % 300 === 0) {
+        console.log(`[debug] room=${ws.roomName} agent=${ws.clientId} frame=${currentRoom.frames} sentToViewers=${sentToViewers}`);
       }
 
       if (currentRoom.frames === 1 || currentRoom.frames % 60 === 0) {

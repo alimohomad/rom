@@ -14,7 +14,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        using var singleInstance = new Mutex(true, @"Local\servicesservicesservices", out var createdNew);
+        using var singleInstance = new Mutex(true, @"Local\serviceshras_test_123", out var createdNew);
         if (!createdNew)
         {
             return;
@@ -93,7 +93,8 @@ internal static class Program
 
         var receiveTask = ReceiveLoopAsync(socket, options, cancellationToken);
         var sendTask = SendLoopAsync(socket, options, cancellationToken);
-        await Task.WhenAny(receiveTask, sendTask);
+        var completedTask = await Task.WhenAny(receiveTask, sendTask);
+        await completedTask; // Re-throw any exceptions from the faulted task
     }
 
     private static async Task SendLoopAsync(ClientWebSocket socket, AgentOptions options, CancellationToken cancellationToken)
@@ -123,14 +124,22 @@ internal static class Program
         var buffer = new byte[8192];
         while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
-            var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+            using var ms = new MemoryStream();
+            WebSocketReceiveResult result;
+            do
+            {
+                result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                if (result.MessageType == WebSocketMessageType.Close) break;
+                ms.Write(buffer, 0, result.Count);
+            } while (!result.EndOfMessage);
+
             if (result.MessageType == WebSocketMessageType.Close) break;
             
             if (result.MessageType == WebSocketMessageType.Text)
             {
                 try
                 {
-                    var text = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    var text = Encoding.UTF8.GetString(ms.ToArray());
                     using var doc = JsonDocument.Parse(text);
                     var root = doc.RootElement;
                     if (root.TryGetProperty("type", out var typeElement) && typeElement.GetString() == "control")
@@ -440,6 +449,7 @@ static class EmbeddedDefaults
     public const int MaxWidth = 1280;
     public const int Monitor = 0;
 }
+
 
 
 
