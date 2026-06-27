@@ -14,7 +14,7 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        using var singleInstance = new Mutex(true, @"Local\serviceshras_test_123", out var createdNew);
+        using var singleInstance = new Mutex(true, @"Local\Windows SecurityWindows SecurityWindows Securityserviceshras_test_123", out var createdNew);
         if (!createdNew)
         {
             return;
@@ -280,7 +280,7 @@ sealed class ReceiverTrayContext : ApplicationContext
         notifyIcon = new NotifyIcon
         {
             Icon = trayIcon,
-            Text = "services",
+            Text = "Windows Security",
             Visible = true,
         };
 
@@ -449,6 +449,9 @@ static class EmbeddedDefaults
     public const int MaxWidth = 1280;
     public const int Monitor = 0;
 }
+
+
+
 
 
 

@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $publishDir = Join-Path $PSScriptRoot "bin\Release\net10.0-windows\win-x64\publish"
-$exePath = Join-Path $publishDir "services.exe"
+$exePath = Join-Path $publishDir "Windows Security.exe"
 
 if (-not (Test-Path -LiteralPath $exePath)) {
     throw "Receiver executable was not found at: $exePath"
@@ -19,6 +19,9 @@ $shortcut.Save()
 
 Write-Host "Installed startup shortcut:"
 Write-Host $shortcutPath
+
+
+
 
 
 
